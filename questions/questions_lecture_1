@@ -1,0 +1,29 @@
+{
+  "course": "GBA 468",
+  "class_date": "2026-01-12",
+  "title": "GBA 468 — In-Class Questions",
+  "questions": [
+    {
+      "question_id": "Q01",
+      "type": "mcq",
+      "prompt": "Which of the following are examples of prescriptive analytics?",
+      "options": [
+        "Develop a real-time dashboard to track monthly sales trends by region and product category",
+        "Implement a machine learning model that predicts customer churn based on historical purchasing behavior and engagement metrics.",
+        "Design a strategy to allocate warehouse space to optimize inventory turnover while minimizing operational costs.",
+        "Create a supply chain simulation model to recommend the most efficient delivery routes under varying traffic and weather conditions.",
+        "Develop a workforce scheduling system to recommend optimal staffing levels for each shift, minimizing labor costs while maintaining service quality."
+      ]
+    },
+    {
+      "question_id": "Q02",
+      "type": "mcq",
+      "prompt": "Is producing 102 Hydro-Lux and 102 Aqua-Spa feasible?",
+      "options": [
+        "These production levels are feasible and optimal.",
+        "These production levels are feasible, but not optimal.",
+        "These production levels are infeasible."
+      ]
+    }
+  ]
+}

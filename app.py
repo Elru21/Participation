@@ -5,7 +5,7 @@ import json
 from collections import Counter
 from datetime import datetime, date
 
-st.set_page_config(page_title="GBA 468 Participation", layout="centered")
+st.set_page_config(page_title="GBA 468 In-Class Responses", layout="centered")
 
 COURSE = "GBA 468"
 DATA_FILE = "responses.csv"
