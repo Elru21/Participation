@@ -228,7 +228,23 @@ def instructor_view():
             for r in rows[-20:]:
                 st.write(f"- `{r.get('netid')}`: {r.get('response')}")
 
-    st.caption("Tip: For now, click 'Refresh page' in the sidebar to update counts. Auto-refresh is easy to add later.")
+    st.caption("")
+
+    st.divider()
+    st.markdown("### Export")
+
+    if os.path.exists(DATA_FILE):
+        with open(DATA_FILE, "rb") as f:
+            st.download_button(
+                label="Download responses.csv",
+                data=f,
+                file_name=f"responses_{class_date}.csv",
+                mime="text/csv",
+                use_container_width=True,
+            )
+    else:
+        st.info("No responses.csv yet.")
+
 
 
 # ----------------- Student view -----------------
