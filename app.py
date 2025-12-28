@@ -6,6 +6,8 @@ import csv
 from io import StringIO
 from collections import Counter
 from datetime import datetime, timezone
+from google.cloud.firestore_v1 import FieldFilter
+
 
 import firebase_admin
 from firebase_admin import credentials, firestore
@@ -162,9 +164,9 @@ def rows_for_question(lecture: str, question_id: str) -> list[dict]:
     db = get_firestore_client()
     q = (
         db.collection("responses")
-        .where("course", "==", COURSE)
-        .where("lecture", "==", lecture)
-        .where("question_id", "==", question_id)
+        .where(filter=FieldFilter("course", "==", COURSE))
+        .where(filter=FieldFilter("lecture", "==", lecture))
+        .where(filter=FieldFilter("question_id", "==", question_id))
         .order_by("timestamp")
     )
     return [d.to_dict() for d in q.stream()]
@@ -174,8 +176,8 @@ def export_responses_csv_for_lecture(lecture: str) -> bytes | None:
     db = get_firestore_client()
     q = (
         db.collection("responses")
-        .where("course", "==", COURSE)
-        .where("lecture", "==", lecture)
+        .where(filter=FieldFilter("course", "==", COURSE))
+        .where(filter=FieldFilter("lecture", "==", lecture))
         .order_by("timestamp")
     )
     docs = [d.to_dict() for d in q.stream()]

@@ -6,14 +6,11 @@ __pycache__/
 .env
 
 # Ignore JSON secrets
-*.json
-
-# But keep question files
-!questions/
-!questions/*.json
+participation*.json
 
 # Streamlit
 .streamlit/
 
+#Dev only files
 app_backup.py
 deploy.ps1
