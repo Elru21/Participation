@@ -18,6 +18,12 @@ INSTRUCTOR_KEY = os.environ.get("INSTRUCTOR_KEY", "change-me")  # set on host la
 
 # ----------------- Helpers -----------------
 
+def is_instructor_authorized(mode: str, key: str) -> bool:
+    # Only instructors with the correct key can download
+    return (mode == "instructor") and (key == INSTRUCTOR_KEY)
+
+
+
 def get_query_params():
     # Streamlit 1.30+ uses st.query_params (dict-like)
     qp = st.query_params
@@ -141,18 +147,33 @@ st.markdown(
 )
 st.write("")
 
+# ----------------- Main controls (mobile-friendly) -----------------
 
-# ----------------- Sidebar -----------------
+controls = st.container()
+with controls:
+    c1, c2 = st.columns([1, 1])
 
-with st.sidebar:
-    st.header("Session")
-    st.write(f"**Date:** {class_date}")
-    st.write(f"**Questions file:** `{questions_path(class_date)}`")
-    st.write(f"**State file:** `{state_path(class_date)}`")
-    st.write(f"**Active question:** `{state.get('active_question_id')}`")
+    with c1:
+        if st.button("Refresh page", use_container_width=True):
+            st.rerun()
 
-    if st.button("Refresh page"):
-        st.rerun()
+    with c2:
+        if is_instructor_authorized(mode, key):
+            if os.path.exists(DATA_FILE):
+                with open(DATA_FILE, "rb") as f:
+                    st.download_button(
+                        label="Download responses.csv",
+                        data=f,
+                        file_name=f"responses_{class_date}.csv",
+                        mime="text/csv",
+                        use_container_width=True,
+                    )
+            else:
+                st.button("Download responses.csv", disabled=True, use_container_width=True)
+        else:
+            # Students (and unauthorized instructor view) don't see download
+            st.empty()
+
 
 
 # ----------------- Instructor view -----------------
@@ -230,40 +251,54 @@ def instructor_view():
 
     st.caption("")
 
-    st.divider()
-    st.markdown("### Export")
-
-    if os.path.exists(DATA_FILE):
-        with open(DATA_FILE, "rb") as f:
-            st.download_button(
-                label="Download responses.csv",
-                data=f,
-                file_name=f"responses_{class_date}.csv",
-                mime="text/csv",
-                use_container_width=True,
-            )
-    else:
-        st.info("No responses.csv yet.")
 
 
 
 # ----------------- Student view -----------------
 
+# ----------------- Student view -----------------
+
 def student_view():
-    # NetID capture
+    # Ensure netid exists in session state
     if "netid" not in st.session_state:
         st.session_state.netid = ""
 
+    # -------- NetID screen (phone-friendly) --------
     if not st.session_state.netid:
-        st.info("Enter your NetID once. It will be attached to every submission.")
-        netid = st.text_input("NetID", placeholder="e.g., abc123").strip().lower()
-        if st.button("Save NetID") and netid:
-            st.session_state.netid = netid
-            st.rerun()
+        st.markdown("## Check in")
+        st.caption("Enter your NetID once. It will be attached to every submission.")
+
+        netid = st.text_input(
+            "NetID",
+            placeholder="e.g., abc123",
+        ).strip().lower()
+
+        if st.button("Save NetID", type="primary", use_container_width=True):
+            if not netid:
+                st.warning("Please enter your NetID.")
+            else:
+                st.session_state.netid = netid
+                st.rerun()
+
         st.stop()
 
-    st.success(f"Signed in as **{st.session_state.netid}**")
+    # -------- Compact signed-in row --------
+    c1, c2 = st.columns([3, 1])
+    with c1:
+        st.markdown(
+            f"<div style='font-size: 0.95rem; color: #444;'>"
+            f"Signed in as <span style='font-weight:700;'>{st.session_state.netid}</span>"
+            f"</div>",
+            unsafe_allow_html=True,
+        )
+    with c2:
+        if st.button("Change", use_container_width=True):
+            st.session_state.netid = ""
+            st.rerun()
 
+    st.write("")
+
+    # -------- Current live question --------
     q_live = get_question_by_id(questions_doc, state.get("active_question_id"))
     if not q_live:
         st.info("No question is live yet. Please wait.")
@@ -273,41 +308,59 @@ def student_view():
     already = has_submitted(class_date, qid, st.session_state.netid)
 
     if already:
-        st.info("✅ You already submitted a response for this question.")
+        st.caption("✅ You already submitted a response for this question.")
 
-    st.subheader("Current question")
-    st.write(q_live.get("prompt"))
+    # Prompt as a card
+    st.markdown("### Current question")
+    st.markdown(
+        f"<div style='padding: 0.9rem 1rem; border-radius: 0.9rem; border: 1px solid #e6e6e6;'>"
+        f"<div style='font-size: 1.05rem; font-weight: 600; margin-bottom: 0.35rem;'>"
+        f"{q_live.get('question_id', '')}"
+        f"</div>"
+        f"<div style='font-size: 1.05rem;'>"
+        f"{q_live.get('prompt', '')}"
+        f"</div>"
+        f"</div>",
+        unsafe_allow_html=True,
+    )
+    st.write("")
 
-    # Render input
+    # -------- Response input --------
     response_value = None
-    if q_live.get("type") == "text":
-        response_value = st.text_input(
+    qtype = q_live.get("type")
+
+    if qtype == "text":
+        response_value = st.text_area(
             "Your answer",
             placeholder="Type your response here…",
-            disabled=already
+            disabled=already,
         )
-    elif q_live.get("type") == "mcq":
+
+    elif qtype == "mcq":
         options = q_live.get("options", [])
         if not options:
             st.error("This multiple-choice question has no options configured.")
             return
+
         response_value = st.radio(
             "Select one:",
             options,
             index=None,
-            disabled=already
+            disabled=already,
         )
+
     else:
-        st.error(f"Unknown question type: {q_live.get('type')}")
+        st.error(f"Unknown question type: {qtype}")
         return
 
-    require_nonempty = st.checkbox("Require a non-empty answer", value=True, disabled=already)
+    st.write("")
 
-    if st.button("Submit", type="primary", disabled=already):
+    # -------- Submit (full-width, always requires non-empty) --------
+    if st.button("Submit", type="primary", disabled=already, use_container_width=True):
         cleaned = "" if response_value is None else str(response_value).strip()
 
-        if require_nonempty and not cleaned:
-            st.warning("Please enter/select an answer before submitting.")
+        if not cleaned:
+            st.warning("Please enter or select an answer before submitting.")
             return
 
         payload = {
@@ -316,7 +369,7 @@ def student_view():
             "class_date": class_date,
             "netid": st.session_state.netid,
             "question_id": qid,
-            "question_type": q_live.get("type"),
+            "question_type": qtype,
             "question_prompt": q_live.get("prompt"),
             "response": cleaned,
         }
@@ -328,13 +381,14 @@ def student_view():
         else:
             st.info("✅ Already submitted (nothing changed).")
 
-    # Optional: show results to students (controlled by instructor)
-    if bool(state.get("show_results_to_students", False)) and q_live.get("type") == "mcq":
+    # -------- Optional: show results to students (controlled by instructor) --------
+    if bool(state.get("show_results_to_students", False)) and qtype == "mcq":
         rows = rows_for_question(qid)
         counts = Counter(r.get("response", "") for r in rows)
         chart_data = {opt: counts.get(opt, 0) for opt in q_live.get("options", [])}
         st.markdown("### Class results")
         st.bar_chart(chart_data)
+
 
 
 # ----------------- Route -----------------
