@@ -3,20 +3,52 @@ import streamlit as st
 import os
 import json
 import csv
+from io import StringIO
 from collections import Counter
-from datetime import datetime
+from datetime import datetime, timezone
+
+import firebase_admin
+from firebase_admin import credentials, firestore
 
 st.set_page_config(page_title="GBA 468 In-Class Responses", layout="centered")
 
 COURSE = "GBA 468"
 
 QUESTIONS_DIR = "questions"
-STATE_DIR = "state"
-STATE_FILE = os.path.join(STATE_DIR, "state.json")
 
-DATA_FILE = "responses.csv"  # TEMP: next step will move this to Firestore
+# Firestore doc id for state (you can make this COURSE + section later if needed)
+STATE_DOC_ID = COURSE
 
 INSTRUCTOR_KEY = os.environ.get("INSTRUCTOR_KEY", "change-me")  # set on host later
+
+
+# ----------------- Firestore -----------------
+
+def get_firestore_client():
+    # Cache across reruns
+    if "firestore_client" in st.session_state:
+        return st.session_state["firestore_client"]
+
+    # Initialize Firebase Admin once per server process
+    if not firebase_admin._apps:
+        if "FIREBASE_SERVICE_ACCOUNT" in st.secrets:
+            sa = json.loads(st.secrets["FIREBASE_SERVICE_ACCOUNT"])
+            cred = credentials.Certificate(sa)
+            firebase_admin.initialize_app(cred)
+        else:
+            # Cloud Run later (ADC), or local dev (gcloud ADC)
+            firebase_admin.initialize_app()
+
+    db = firestore.client()
+    st.success("✅ Firestore connected")
+
+    st.session_state["firestore_client"] = db
+    return db
+
+
+def response_doc_id(course: str, lecture: str, question_id: str, netid: str) -> str:
+    # Deterministic doc id enforces: 1 submission per netid per question
+    return f"{course}__{lecture}__{question_id}__{netid}".replace("/", "_")
 
 
 # ----------------- Helpers -----------------
@@ -58,29 +90,6 @@ def load_questions(lecture: str) -> dict:
         }
 
 
-def load_state() -> dict:
-    if not os.path.exists(STATE_FILE):
-        return {
-            "current_lecture": "lecture_01",
-            "active_question_id": None,
-            "show_results_to_students": False
-        }
-    try:
-        return json.loads(open(STATE_FILE, "r", encoding="utf-8").read())
-    except json.JSONDecodeError:
-        return {
-            "current_lecture": "lecture_01",
-            "active_question_id": None,
-            "show_results_to_students": False
-        }
-
-
-def save_state(state: dict):
-    os.makedirs(STATE_DIR, exist_ok=True)
-    with open(STATE_FILE, "w", encoding="utf-8") as f:
-        json.dump(state, f, indent=2)
-
-
 def get_question_by_id(questions_doc: dict, qid: str):
     for q in questions_doc.get("questions", []):
         if q.get("question_id") == qid:
@@ -98,52 +107,100 @@ def available_lectures() -> list[str]:
     return sorted(set(lectures))
 
 
-# -------- CSV storage (TEMP until Firestore migration) --------
+# ----------------- State in Firestore (Cloud Run friendly) -----------------
 
-def append_row(row: dict):
-    file_exists = os.path.exists(DATA_FILE)
-    with open(DATA_FILE, "a", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=row.keys())
-        if not file_exists:
-            writer.writeheader()
-        writer.writerow(row)
+def load_state() -> dict:
+    db = get_firestore_client()
+    ref = db.collection("class_state").document(STATE_DOC_ID)
+    snap = ref.get()
 
+    if not snap.exists:
+        default = {
+            "current_lecture": "lecture_01",
+            "active_question_id": None,
+            "show_results_to_students": False
+        }
+        ref.set(default)
+        return default
+
+    s = snap.to_dict() or {}
+    s.setdefault("current_lecture", "lecture_01")
+    s.setdefault("active_question_id", None)
+    s.setdefault("show_results_to_students", False)
+    return s
+
+
+def save_state(state: dict):
+    db = get_firestore_client()
+    db.collection("class_state").document(STATE_DOC_ID).set(state, merge=True)
+
+
+# ----------------- Responses in Firestore -----------------
 
 def has_submitted(lecture: str, question_id: str, netid: str) -> bool:
-    if not os.path.exists(DATA_FILE):
-        return False
-    with open(DATA_FILE, "r", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        for r in reader:
-            if (
-                r.get("lecture") == lecture
-                and r.get("question_id") == question_id
-                and r.get("netid") == netid
-            ):
-                return True
-    return False
+    db = get_firestore_client()
+    doc_id = response_doc_id(COURSE, lecture, question_id, netid)
+    return db.collection("responses").document(doc_id).get().exists
 
 
 def append_row_if_new(row: dict) -> bool:
     """
-    Append the row only if there isn't already a submission for
-    (lecture, question_id, netid). Returns True if written, False if blocked.
+    Writes only if doc doesn't exist yet (course/lecture/question/netid).
+    Returns True if written, False if blocked.
     """
-    if has_submitted(row["lecture"], row["question_id"], row["netid"]):
-        return False
-    append_row(row)
-    return True
+    db = get_firestore_client()
+    doc_id = response_doc_id(row["course"], row["lecture"], row["question_id"], row["netid"])
+    ref = db.collection("responses").document(doc_id)
+
+    @firestore.transactional
+    def _create_if_missing(txn):
+        snap = ref.get(transaction=txn)
+        if snap.exists:
+            return False
+        txn.create(ref, row)
+        return True
+
+    return _create_if_missing(db.transaction())
 
 
 def rows_for_question(lecture: str, question_id: str) -> list[dict]:
-    if not os.path.exists(DATA_FILE) or not lecture or not question_id:
+    if not lecture or not question_id:
         return []
-    with open(DATA_FILE, "r", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        return [
-            r for r in reader
-            if r.get("lecture") == lecture and r.get("question_id") == question_id
-        ]
+
+    db = get_firestore_client()
+    q = (
+        db.collection("responses")
+        .where("course", "==", COURSE)
+        .where("lecture", "==", lecture)
+        .where("question_id", "==", question_id)
+        .order_by("timestamp")
+    )
+    return [d.to_dict() for d in q.stream()]
+
+
+def export_responses_csv_for_lecture(lecture: str) -> bytes | None:
+    db = get_firestore_client()
+    q = (
+        db.collection("responses")
+        .where("course", "==", COURSE)
+        .where("lecture", "==", lecture)
+        .order_by("timestamp")
+    )
+    docs = [d.to_dict() for d in q.stream()]
+    if not docs:
+        return None
+
+    fieldnames = [
+        "timestamp", "course", "lecture", "netid",
+        "question_id", "question_type", "question_prompt", "response",
+    ]
+    buf = StringIO()
+    writer = csv.DictWriter(buf, fieldnames=fieldnames)
+    writer.writeheader()
+    for r in docs:
+        writer.writerow({k: r.get(k, "") for k in fieldnames})
+
+    return buf.getvalue().encode("utf-8")
 
 
 # ----------------- Header -----------------
@@ -178,17 +235,17 @@ with controls:
             st.rerun()
 
     with c2:
-        # Instructor-only download (TEMP: CSV). We'll replace with Firestore export later.
+        # Instructor-only download (now exports from Firestore)
         if is_instructor_authorized(mode, key):
-            if os.path.exists(DATA_FILE):
-                with open(DATA_FILE, "rb") as f:
-                    st.download_button(
-                        label="Download responses.csv",
-                        data=f,
-                        file_name=f"responses_{lecture}.csv",
-                        mime="text/csv",
-                        use_container_width=True,
-                    )
+            csv_bytes = export_responses_csv_for_lecture(lecture)
+            if csv_bytes:
+                st.download_button(
+                    label="Download responses.csv",
+                    data=csv_bytes,
+                    file_name=f"responses_{lecture}.csv",
+                    mime="text/csv",
+                    use_container_width=True,
+                )
             else:
                 st.button("Download responses.csv", disabled=True, use_container_width=True)
         else:
@@ -264,6 +321,8 @@ def instructor_view():
             state["active_question_id"] = selected_q.get("question_id")
             save_state(state)
             st.success(f"Live: {state['active_question_id']}")
+            st.rerun()
+
     with col2:
         show = st.checkbox(
             "Show results to students",
@@ -273,6 +332,7 @@ def instructor_view():
             state["show_results_to_students"] = show
             save_state(state)
             st.success("Updated student results visibility.")
+            st.rerun()
 
     st.divider()
     st.markdown("### Live results (instructor)")
@@ -408,7 +468,8 @@ def student_view():
             return
 
         payload = {
-            "timestamp": datetime.now().isoformat(timespec="seconds"),
+            # Use UTC so ordering is clean across environments
+            "timestamp": datetime.now(timezone.utc).isoformat(timespec="seconds"),
             "course": COURSE,
             "lecture": lecture,
             "netid": st.session_state.netid,
