@@ -4,7 +4,13 @@ __pycache__/
 
 # Secrets / env
 .env
+
+# Ignore JSON secrets
 *.json
+
+# But keep question files
+!questions/
+!questions/*.json
 
 # Streamlit
 .streamlit/
