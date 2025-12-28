@@ -1,6 +1,12 @@
-responses.csv
-state/*.json
+# Python
 __pycache__/
 *.pyc
+
+# Secrets / env
 .env
-app copy.py
+*.json
+
+# Streamlit
+.streamlit/
+
+app_backup.py
