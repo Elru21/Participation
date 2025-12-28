@@ -16,3 +16,4 @@ __pycache__/
 .streamlit/
 
 app_backup.py
+deploy.ps1
