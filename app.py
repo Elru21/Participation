@@ -1,52 +1,49 @@
+# app.py
 import streamlit as st
-import csv
 import os
 import json
+import csv
 from collections import Counter
-from datetime import datetime, date
+from datetime import datetime
 
 st.set_page_config(page_title="GBA 468 In-Class Responses", layout="centered")
 
 COURSE = "GBA 468"
-DATA_FILE = "responses.csv"
 
 QUESTIONS_DIR = "questions"
 STATE_DIR = "state"
+STATE_FILE = os.path.join(STATE_DIR, "state.json")
+
+DATA_FILE = "responses.csv"  # TEMP: next step will move this to Firestore
 
 INSTRUCTOR_KEY = os.environ.get("INSTRUCTOR_KEY", "change-me")  # set on host later
 
 
 # ----------------- Helpers -----------------
 
-def is_instructor_authorized(mode: str, key: str) -> bool:
-    # Only instructors with the correct key can download
-    return (mode == "instructor") and (key == INSTRUCTOR_KEY)
-
-
-
 def get_query_params():
     # Streamlit 1.30+ uses st.query_params (dict-like)
     qp = st.query_params
     mode = (qp.get("mode", "student") or "student").lower()
-    class_date = qp.get("date", date.today().isoformat())
     key = qp.get("key", "")
-    return mode, class_date, key
+    return mode, key
 
 
-def questions_path(class_date: str) -> str:
-    return os.path.join(QUESTIONS_DIR, f"questions_{class_date}.json")
+def is_instructor_authorized(mode: str, key: str) -> bool:
+    return (mode == "instructor") and (key == INSTRUCTOR_KEY)
 
 
-def state_path(class_date: str) -> str:
-    return os.path.join(STATE_DIR, f"state_{class_date}.json")
+def questions_path(lecture: str) -> str:
+    # lecture like "lecture_01"
+    return os.path.join(QUESTIONS_DIR, f"questions_{lecture}.json")
 
 
-def load_questions(class_date: str) -> dict:
-    path = questions_path(class_date)
+def load_questions(lecture: str) -> dict:
+    path = questions_path(lecture)
     if not os.path.exists(path):
         return {
             "course": COURSE,
-            "class_date": class_date,
+            "lecture": lecture,
             "title": f"(Missing {path})",
             "questions": []
         }
@@ -55,28 +52,53 @@ def load_questions(class_date: str) -> dict:
     except json.JSONDecodeError as e:
         return {
             "course": COURSE,
-            "class_date": class_date,
+            "lecture": lecture,
             "title": f"(Bad JSON in {path}: {e})",
             "questions": []
         }
 
 
-def load_state(class_date: str) -> dict:
-    path = state_path(class_date)
-    if not os.path.exists(path):
-        return {"active_question_id": None, "show_results_to_students": False}
+def load_state() -> dict:
+    if not os.path.exists(STATE_FILE):
+        return {
+            "current_lecture": "lecture_01",
+            "active_question_id": None,
+            "show_results_to_students": False
+        }
     try:
-        return json.loads(open(path, "r", encoding="utf-8").read())
+        return json.loads(open(STATE_FILE, "r", encoding="utf-8").read())
     except json.JSONDecodeError:
-        return {"active_question_id": None, "show_results_to_students": False}
+        return {
+            "current_lecture": "lecture_01",
+            "active_question_id": None,
+            "show_results_to_students": False
+        }
 
 
-def save_state(class_date: str, state: dict):
+def save_state(state: dict):
     os.makedirs(STATE_DIR, exist_ok=True)
-    path = state_path(class_date)
-    with open(path, "w", encoding="utf-8") as f:
+    with open(STATE_FILE, "w", encoding="utf-8") as f:
         json.dump(state, f, indent=2)
 
+
+def get_question_by_id(questions_doc: dict, qid: str):
+    for q in questions_doc.get("questions", []):
+        if q.get("question_id") == qid:
+            return q
+    return None
+
+
+def available_lectures() -> list[str]:
+    os.makedirs(QUESTIONS_DIR, exist_ok=True)
+    lectures = []
+    for fn in os.listdir(QUESTIONS_DIR):
+        if fn.startswith("questions_lecture_") and fn.endswith(".json"):
+            # questions_lecture_01.json -> lecture_01
+            lectures.append(fn.replace("questions_", "").replace(".json", ""))
+    return sorted(set(lectures))
+
+
+# -------- CSV storage (TEMP until Firestore migration) --------
 
 def append_row(row: dict):
     file_exists = os.path.exists(DATA_FILE)
@@ -87,28 +109,14 @@ def append_row(row: dict):
         writer.writerow(row)
 
 
-def rows_for_question(question_id: str) -> list[dict]:
-    if not os.path.exists(DATA_FILE) or not question_id:
-        return []
-    with open(DATA_FILE, "r", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        return [r for r in reader if r.get("question_id") == question_id]
-
-
-def get_question_by_id(questions_doc: dict, qid: str) -> dict | None:
-    for q in questions_doc.get("questions", []):
-        if q.get("question_id") == qid:
-            return q
-    return None
-
-def has_submitted(class_date: str, question_id: str, netid: str) -> bool:
+def has_submitted(lecture: str, question_id: str, netid: str) -> bool:
     if not os.path.exists(DATA_FILE):
         return False
     with open(DATA_FILE, "r", encoding="utf-8") as f:
         reader = csv.DictReader(f)
         for r in reader:
             if (
-                r.get("class_date") == class_date
+                r.get("lecture") == lecture
                 and r.get("question_id") == question_id
                 and r.get("netid") == netid
             ):
@@ -119,28 +127,40 @@ def has_submitted(class_date: str, question_id: str, netid: str) -> bool:
 def append_row_if_new(row: dict) -> bool:
     """
     Append the row only if there isn't already a submission for
-    (class_date, question_id, netid). Returns True if written, False if blocked.
+    (lecture, question_id, netid). Returns True if written, False if blocked.
     """
-    if has_submitted(row["class_date"], row["question_id"], row["netid"]):
+    if has_submitted(row["lecture"], row["question_id"], row["netid"]):
         return False
     append_row(row)
     return True
 
 
+def rows_for_question(lecture: str, question_id: str) -> list[dict]:
+    if not os.path.exists(DATA_FILE) or not lecture or not question_id:
+        return []
+    with open(DATA_FILE, "r", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        return [
+            r for r in reader
+            if r.get("lecture") == lecture and r.get("question_id") == question_id
+        ]
+
+
 # ----------------- Header -----------------
 
-mode, class_date, key = get_query_params()
-questions_doc = load_questions(class_date)
-state = load_state(class_date)
+mode, key = get_query_params()
+state = load_state()
+
+lecture = state.get("current_lecture", "lecture_01")
+questions_doc = load_questions(lecture)
 
 title = f"{COURSE} — Participation"
-date_str = datetime.fromisoformat(class_date).strftime("%A, %B %d, %Y") if class_date else ""
 
 st.markdown(
     f"""
     <div style="padding: 0.75rem 1rem; border-radius: 0.75rem; border: 1px solid #e6e6e6;">
         <div style="font-size: 1.6rem; font-weight: 700;">{title}</div>
-        <div style="font-size: 1rem; color: #666;">{date_str} • Mode: {mode}</div>
+        <div style="font-size: 1rem; color: #666;">Lecture: {lecture} • Mode: {mode}</div>
     </div>
     """,
     unsafe_allow_html=True,
@@ -158,38 +178,35 @@ with controls:
             st.rerun()
 
     with c2:
+        # Instructor-only download (TEMP: CSV). We'll replace with Firestore export later.
         if is_instructor_authorized(mode, key):
             if os.path.exists(DATA_FILE):
                 with open(DATA_FILE, "rb") as f:
                     st.download_button(
                         label="Download responses.csv",
                         data=f,
-                        file_name=f"responses_{class_date}.csv",
+                        file_name=f"responses_{lecture}.csv",
                         mime="text/csv",
                         use_container_width=True,
                     )
             else:
                 st.button("Download responses.csv", disabled=True, use_container_width=True)
         else:
-            # Students (and unauthorized instructor view) don't see download
             st.empty()
-
 
 
 # ----------------- Instructor view -----------------
 
 def instructor_view():
-    # Simple protection: key in URL OR prompt (you can choose one)
     authorized = (key == INSTRUCTOR_KEY)
 
     if not authorized:
         st.warning("Instructor mode. Enter passcode to continue.")
         entered = st.text_input("Instructor passcode", type="password")
-        if st.button("Unlock"):
+        if st.button("Unlock", use_container_width=True):
             if entered == INSTRUCTOR_KEY:
                 st.success("Unlocked. (Reloading)")
-                # add key to URL so you don’t retype while testing
-                st.query_params.update({"mode": "instructor", "date": class_date, "key": entered})
+                st.query_params.update({"mode": "instructor", "key": entered})
                 st.rerun()
             else:
                 st.error("Incorrect passcode.")
@@ -197,9 +214,31 @@ def instructor_view():
 
     st.subheader("Instructor control panel")
 
-    qs = questions_doc.get("questions", [])
+    # -------- Lecture selector --------
+    lectures = available_lectures()
+    if not lectures:
+        st.error("No question files found in /questions. Expected: questions_lecture_01.json, etc.")
+        st.stop()
+
+    current_lecture = state.get("current_lecture", lectures[0])
+    idx = lectures.index(current_lecture) if current_lecture in lectures else 0
+    selected_lecture = st.selectbox("Current lecture", lectures, index=idx)
+
+    if selected_lecture != state.get("current_lecture"):
+        state["current_lecture"] = selected_lecture
+        state["active_question_id"] = None  # reset when switching lectures
+        state["show_results_to_students"] = False
+        save_state(state)
+        st.success(f"Lecture set to {selected_lecture}")
+        st.rerun()
+
+    # Use questions for the currently selected lecture
+    lecture_local = state.get("current_lecture", selected_lecture)
+    questions_doc_local = load_questions(lecture_local)
+
+    qs = questions_doc_local.get("questions", [])
     if not qs:
-        st.error("No questions found. Add questions to the JSON file in /questions.")
+        st.error(f"No questions found for {lecture_local}. Add questions to {questions_path(lecture_local)}.")
         st.stop()
 
     labels = [f"{q.get('question_id')} — {q.get('type')} — {q.get('prompt')[:60]}" for q in qs]
@@ -212,31 +251,40 @@ def instructor_view():
             default_label = lab
             break
 
-    selected_label = st.selectbox("Select the live question", labels, index=(labels.index(default_label) if default_label else 0))
+    selected_label = st.selectbox(
+        "Select the live question",
+        labels,
+        index=(labels.index(default_label) if default_label else 0),
+    )
     selected_q = by_label[selected_label]
 
     col1, col2 = st.columns([2, 2])
     with col1:
         if st.button("Make this question LIVE", type="primary", use_container_width=True):
             state["active_question_id"] = selected_q.get("question_id")
-            save_state(class_date, state)
+            save_state(state)
             st.success(f"Live: {state['active_question_id']}")
     with col2:
-        show = st.checkbox("Show results to students", value=bool(state.get("show_results_to_students", False)))
+        show = st.checkbox(
+            "Show results to students",
+            value=bool(state.get("show_results_to_students", False)),
+        )
         if show != bool(state.get("show_results_to_students", False)):
             state["show_results_to_students"] = show
-            save_state(class_date, state)
+            save_state(state)
             st.success("Updated student results visibility.")
 
     st.divider()
     st.markdown("### Live results (instructor)")
-    q_live = get_question_by_id(questions_doc, state.get("active_question_id"))
+
+    q_live = get_question_by_id(questions_doc_local, state.get("active_question_id"))
     if not q_live:
         st.info("No active question set yet.")
         return
 
     st.write(f"**{q_live.get('question_id')}** — {q_live.get('prompt')}")
-    rows = rows_for_question(q_live.get("question_id"))
+
+    rows = rows_for_question(lecture_local, q_live.get("question_id"))
 
     if q_live.get("type") == "mcq":
         options = q_live.get("options", [])
@@ -251,10 +299,6 @@ def instructor_view():
 
     st.caption("")
 
-
-
-
-# ----------------- Student view -----------------
 
 # ----------------- Student view -----------------
 
@@ -305,7 +349,7 @@ def student_view():
         return
 
     qid = q_live.get("question_id")
-    already = has_submitted(class_date, qid, st.session_state.netid)
+    already = has_submitted(lecture, qid, st.session_state.netid)
 
     if already:
         st.caption("✅ You already submitted a response for this question.")
@@ -366,7 +410,7 @@ def student_view():
         payload = {
             "timestamp": datetime.now().isoformat(timespec="seconds"),
             "course": COURSE,
-            "class_date": class_date,
+            "lecture": lecture,
             "netid": st.session_state.netid,
             "question_id": qid,
             "question_type": qtype,
@@ -383,12 +427,11 @@ def student_view():
 
     # -------- Optional: show results to students (controlled by instructor) --------
     if bool(state.get("show_results_to_students", False)) and qtype == "mcq":
-        rows = rows_for_question(qid)
+        rows = rows_for_question(lecture, qid)
         counts = Counter(r.get("response", "") for r in rows)
         chart_data = {opt: counts.get(opt, 0) for opt in q_live.get("options", [])}
         st.markdown("### Class results")
         st.bar_chart(chart_data)
-
 
 
 # ----------------- Route -----------------
