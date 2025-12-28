@@ -29,19 +29,11 @@ def get_firestore_client():
     if "firestore_client" in st.session_state:
         return st.session_state["firestore_client"]
 
-    # Initialize Firebase Admin once per server process
+    # Initialize Firebase Admin once per server process (ADC)
     if not firebase_admin._apps:
-        if "FIREBASE_SERVICE_ACCOUNT" in st.secrets:
-            sa = json.loads(st.secrets["FIREBASE_SERVICE_ACCOUNT"])
-            cred = credentials.Certificate(sa)
-            firebase_admin.initialize_app(cred)
-        else:
-            # Cloud Run later (ADC), or local dev (gcloud ADC)
-            firebase_admin.initialize_app()
+        firebase_admin.initialize_app()
 
     db = firestore.client()
-    st.success("✅ Firestore connected")
-
     st.session_state["firestore_client"] = db
     return db
 
