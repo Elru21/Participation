@@ -10,7 +10,7 @@ from google.cloud.firestore_v1 import FieldFilter
 
 
 import firebase_admin
-from firebase_admin import credentials, firestore
+from firebase_admin import firestore
 
 st.set_page_config(page_title="GBA 468 In-Class Responses", layout="centered")
 
@@ -26,18 +26,12 @@ INSTRUCTOR_KEY = os.environ.get("INSTRUCTOR_KEY", "change-me")  # set on host la
 
 # ----------------- Firestore -----------------
 
+@st.cache_resource
 def get_firestore_client():
-    # Cache across reruns
-    if "firestore_client" in st.session_state:
-        return st.session_state["firestore_client"]
-
     # Initialize Firebase Admin once per server process (ADC)
     if not firebase_admin._apps:
         firebase_admin.initialize_app()
-
-    db = firestore.client()
-    st.session_state["firestore_client"] = db
-    return db
+    return firestore.client()
 
 
 def response_doc_id(course: str, lecture: str, question_id: str, netid: str) -> str:
@@ -47,12 +41,20 @@ def response_doc_id(course: str, lecture: str, question_id: str, netid: str) -> 
 
 # ----------------- Helpers -----------------
 
+def _qp_get(qp, k, default=""):
+    v = qp.get(k, default)
+    if isinstance(v, list):
+        v = v[0] if v else default
+    return v
+
+
+
 def get_query_params():
-    # Streamlit 1.30+ uses st.query_params (dict-like)
     qp = st.query_params
-    mode = (qp.get("mode", "student") or "student").lower()
-    key = qp.get("key", "")
+    mode = (_qp_get(qp, "mode", "student") or "student").lower()
+    key = _qp_get(qp, "key", "")
     return mode, key
+
 
 
 def is_instructor_authorized(mode: str, key: str) -> bool:
@@ -99,6 +101,66 @@ def available_lectures() -> list[str]:
             # questions_lecture_01.json -> lecture_01
             lectures.append(fn.replace("questions_", "").replace(".json", ""))
     return sorted(set(lectures))
+
+def render_question_input(q_live: dict, disabled: bool):
+    qtype = q_live.get("type")
+
+    if qtype == "text":
+        multiline = bool(q_live.get("multiline", True))
+        if multiline:
+            val = st.text_area("Your answer", disabled=disabled)
+        else:
+            val = st.text_input("Your answer", disabled=disabled)
+        return qtype, val
+
+    if qtype == "single_choice":
+        options = q_live.get("options", [])
+        val = st.radio("Select one:", options, index=None, disabled=disabled)
+        return qtype, val
+
+    if qtype == "multi_choice":
+        options = q_live.get("options", [])
+        val = st.multiselect("Select all that apply:", options, disabled=disabled)
+        return qtype, val
+
+    if qtype == "multi_text":
+        answers = {}
+        for f in q_live.get("fields", []):
+            key = f.get("key")
+            label = f.get("label", key)
+            answers[key] = st.text_input(label, disabled=disabled)
+        return qtype, answers
+
+    st.error(f"Unknown question type: {qtype}")
+    return qtype, None
+
+def validate_response(q_live: dict, response_value):
+    qtype = q_live.get("type")
+
+    if qtype in ("text", "single_choice"):
+        cleaned = "" if response_value is None else str(response_value).strip()
+        return (bool(cleaned), cleaned)
+
+    if qtype == "multi_choice":
+        selected = response_value or []
+        min_sel = int(q_live.get("min_selected", 0))
+        max_sel = q_live.get("max_selected")
+        if len(selected) < min_sel:
+            return (False, selected)
+        if max_sel is not None and len(selected) > int(max_sel):
+            return (False, selected)
+        return (len(selected) > 0 or min_sel == 0, selected)
+
+    if qtype == "multi_text":
+        fields = q_live.get("fields", [])
+        cleaned = {f["key"]: (response_value.get(f["key"], "") or "").strip() for f in fields}
+        # require all non-empty by default
+        require_all = bool(q_live.get("require_all", True))
+        ok = all(v for v in cleaned.values()) if require_all else any(v for v in cleaned.values())
+        return (ok, cleaned)
+
+    return (False, response_value)
+
 
 
 # ----------------- State in Firestore (Cloud Run friendly) -----------------
@@ -172,6 +234,12 @@ def rows_for_question(lecture: str, question_id: str) -> list[dict]:
     return [d.to_dict() for d in q.stream()]
 
 
+def csv_safe(v):
+    if isinstance(v, (dict, list)):
+        return json.dumps(v, ensure_ascii=False)
+    return v
+
+
 def export_responses_csv_for_lecture(lecture: str) -> bytes | None:
     db = get_firestore_client()
     q = (
@@ -192,7 +260,7 @@ def export_responses_csv_for_lecture(lecture: str) -> bytes | None:
     writer = csv.DictWriter(buf, fieldnames=fieldnames)
     writer.writeheader()
     for r in docs:
-        writer.writerow({k: r.get(k, "") for k in fieldnames})
+        writer.writerow({k: csv_safe(r.get(k, "")) for k in fieldnames})
 
     return buf.getvalue().encode("utf-8")
 
@@ -340,16 +408,29 @@ def instructor_view():
 
     rows = rows_for_question(lecture_local, q_live.get("question_id"))
 
-    if q_live.get("type") == "mcq":
+    qtype_live = q_live.get("type")
+
+    if qtype_live == "single_choice":
         options = q_live.get("options", [])
         counts = Counter(r.get("response", "") for r in rows)
         chart_data = {opt: counts.get(opt, 0) for opt in options}
         st.bar_chart(chart_data)
+
+    elif qtype_live == "multi_choice":
+        options = q_live.get("options", [])
+        counts = Counter()
+        for r in rows:
+            for choice in (r.get("response") or []):
+                counts[choice] += 1
+        chart_data = {opt: counts.get(opt, 0) for opt in options}
+        st.bar_chart(chart_data)
+
     else:
         st.write(f"{len(rows)} responses so far.")
         with st.expander("View latest responses"):
             for r in rows[-20:]:
                 st.write(f"- `{r.get('netid')}`: {r.get('response')}")
+
 
     st.caption("")
 
@@ -424,41 +505,14 @@ def student_view():
     st.write("")
 
     # -------- Response input --------
-    response_value = None
-    qtype = q_live.get("type")
-
-    if qtype == "text":
-        response_value = st.text_area(
-            "Your answer",
-            placeholder="Type your response here…",
-            disabled=already,
-        )
-
-    elif qtype == "mcq":
-        options = q_live.get("options", [])
-        if not options:
-            st.error("This multiple-choice question has no options configured.")
-            return
-
-        response_value = st.radio(
-            "Select one:",
-            options,
-            index=None,
-            disabled=already,
-        )
-
-    else:
-        st.error(f"Unknown question type: {qtype}")
-        return
-
+    qtype, response_value = render_question_input(q_live, disabled=already)
     st.write("")
 
     # -------- Submit (full-width, always requires non-empty) --------
     if st.button("Submit", type="primary", disabled=already, use_container_width=True):
-        cleaned = "" if response_value is None else str(response_value).strip()
-
-        if not cleaned:
-            st.warning("Please enter or select an answer before submitting.")
+        ok, cleaned = validate_response(q_live, response_value)
+        if not ok:
+            st.warning("Please complete your answer before submitting.")
             return
 
         payload = {
@@ -481,12 +535,13 @@ def student_view():
             st.info("✅ Already submitted (nothing changed).")
 
     # -------- Optional: show results to students (controlled by instructor) --------
-    if bool(state.get("show_results_to_students", False)) and qtype == "mcq":
+    if bool(state.get("show_results_to_students", False)) and qtype == "single_choice":
         rows = rows_for_question(lecture, qid)
         counts = Counter(r.get("response", "") for r in rows)
         chart_data = {opt: counts.get(opt, 0) for opt in q_live.get("options", [])}
         st.markdown("### Class results")
         st.bar_chart(chart_data)
+
 
 
 # ----------------- Route -----------------

@@ -5,36 +5,33 @@
   "questions": [
     {
       "question_id": "Q01",
-      "type": "mcq",
+      "type": "single_choice",
       "prompt": "How confident do you feel about today's material so far?",
-      "options": [
-        "Not yet",
-        "Somewhat",
-        "Pretty good",
-        "Very confident"
-      ]
+      "options": ["Not yet", "Somewhat", "Pretty good", "Very confident"]
     },
     {
       "question_id": "Q02",
-      "type": "text",
-      "prompt": "What is one takeaway from the first half of class?"
+      "type": "multi_choice",
+      "prompt": "Which topics should we review again?",
+      "options": ["Firestore", "Cloud Run", "Streamlit state", "Git/GitHub"],
+      "min_selected": 1,
+      "max_selected": 3
     },
     {
       "question_id": "Q03",
-      "type": "mcq",
-      "prompt": "Which topic would you like to spend more time on?",
-      "options": [
-        "Data design",
-        "Model interpretation",
-        "Visualization choices",
-        "Experiment design",
-        "None — all clear"
-      ]
+      "type": "text",
+      "prompt": "What is one takeaway from the first half of class?",
+      "multiline": true,
+      "max_chars": 300
     },
     {
       "question_id": "Q04",
-      "type": "text",
-      "prompt": "What question do you still have right now?"
+      "type": "multi_text",
+      "prompt": "Fill in the blanks:",
+      "fields": [
+        {"key": "blank1", "label": "1) The main advantage of Firestore is ____."},
+        {"key": "blank2", "label": "2) One downside is ____."}
+      ]
     }
   ]
 }
