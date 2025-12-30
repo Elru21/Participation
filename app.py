@@ -34,9 +34,9 @@ def get_firestore_client():
     return firestore.client()
 
 
-def response_doc_id(course: str, lecture: str, question_id: str, netid: str) -> str:
-    # Deterministic doc id enforces: 1 submission per netid per question
-    return f"{course}__{lecture}__{question_id}__{netid}".replace("/", "_")
+def response_doc_id(course: str, lecture: str, session_id: str, question_id: str, netid: str) -> str:
+    return f"{course}__{lecture}__{session_id}__{question_id}__{netid}".replace("/", "_")
+
 
 
 # ----------------- Helpers -----------------
@@ -153,6 +153,7 @@ def validate_response(q_live: dict, response_value):
 
     if qtype == "multi_text":
         fields = q_live.get("fields", [])
+        response_value = response_value or {}
         cleaned = {f["key"]: (response_value.get(f["key"], "") or "").strip() for f in fields}
         # require all non-empty by default
         require_all = bool(q_live.get("require_all", True))
@@ -173,16 +174,16 @@ def load_state() -> dict:
     if not snap.exists:
         default = {
             "current_lecture": "lecture_01",
-            "active_question_id": None,
-            "show_results_to_students": False
+            "session_id": datetime.now().strftime("%Y-%m-%d"),
+            "active_question_id": None
         }
         ref.set(default)
         return default
 
     s = snap.to_dict() or {}
     s.setdefault("current_lecture", "lecture_01")
+    s.setdefault("session_id", datetime.now().strftime("%Y-%m-%d"))
     s.setdefault("active_question_id", None)
-    s.setdefault("show_results_to_students", False)
     return s
 
 
@@ -193,9 +194,9 @@ def save_state(state: dict):
 
 # ----------------- Responses in Firestore -----------------
 
-def has_submitted(lecture: str, question_id: str, netid: str) -> bool:
+def has_submitted(lecture: str, session_id: str, question_id: str, netid: str) -> bool:
     db = get_firestore_client()
-    doc_id = response_doc_id(COURSE, lecture, question_id, netid)
+    doc_id = response_doc_id(COURSE, lecture, session_id, question_id, netid)
     return db.collection("responses").document(doc_id).get().exists
 
 
@@ -205,7 +206,7 @@ def append_row_if_new(row: dict) -> bool:
     Returns True if written, False if blocked.
     """
     db = get_firestore_client()
-    doc_id = response_doc_id(row["course"], row["lecture"], row["question_id"], row["netid"])
+    doc_id = response_doc_id(row["course"], row["lecture"], row["session_id"], row["question_id"], row["netid"])
     ref = db.collection("responses").document(doc_id)
 
     @firestore.transactional
@@ -219,7 +220,7 @@ def append_row_if_new(row: dict) -> bool:
     return _create_if_missing(db.transaction())
 
 
-def rows_for_question(lecture: str, question_id: str) -> list[dict]:
+def rows_for_question(lecture: str, session_id: str, question_id: str) -> list[dict]:
     if not lecture or not question_id:
         return []
 
@@ -228,6 +229,7 @@ def rows_for_question(lecture: str, question_id: str) -> list[dict]:
         db.collection("responses")
         .where(filter=FieldFilter("course", "==", COURSE))
         .where(filter=FieldFilter("lecture", "==", lecture))
+        .where(filter=FieldFilter("session_id", "==", session_id))
         .where(filter=FieldFilter("question_id", "==", question_id))
         .order_by("timestamp")
     )
@@ -240,22 +242,30 @@ def csv_safe(v):
     return v
 
 
-def export_responses_csv_for_lecture(lecture: str) -> bytes | None:
+def export_responses_csv_for_lecture(lecture: str, session_id: str | None) -> bytes | None:
     db = get_firestore_client()
+
     q = (
         db.collection("responses")
         .where(filter=FieldFilter("course", "==", COURSE))
         .where(filter=FieldFilter("lecture", "==", lecture))
-        .order_by("timestamp")
     )
+
+    # If session_id is provided, restrict to that session
+    if session_id:
+        q = q.where(filter=FieldFilter("session_id", "==", session_id))
+
+    q = q.order_by("timestamp")
+
     docs = [d.to_dict() for d in q.stream()]
     if not docs:
         return None
 
     fieldnames = [
-        "timestamp", "course", "lecture", "netid",
+        "timestamp", "course", "lecture", "session_id", "netid",
         "question_id", "question_type", "question_prompt", "response",
     ]
+
     buf = StringIO()
     writer = csv.DictWriter(buf, fieldnames=fieldnames)
     writer.writeheader()
@@ -263,6 +273,7 @@ def export_responses_csv_for_lecture(lecture: str) -> bytes | None:
         writer.writerow({k: csv_safe(r.get(k, "")) for k in fieldnames})
 
     return buf.getvalue().encode("utf-8")
+
 
 
 # ----------------- Header -----------------
@@ -293,25 +304,39 @@ with controls:
     c1, c2 = st.columns([1, 1])
 
     with c1:
-        if st.button("Refresh page", use_container_width=True):
-            st.rerun()
-
-    with c2:
-        # Instructor-only download (now exports from Firestore)
-        if is_instructor_authorized(mode, key):
-            csv_bytes = export_responses_csv_for_lecture(lecture)
-            if csv_bytes:
-                st.download_button(
-                    label="Download responses.csv",
-                    data=csv_bytes,
-                    file_name=f"responses_{lecture}.csv",
-                    mime="text/csv",
-                    use_container_width=True,
-                )
-            else:
-                st.button("Download responses.csv", disabled=True, use_container_width=True)
+        if mode in ("instructor", "results"):
+            if st.button("Update", use_container_width=True):
+                st.rerun()
         else:
             st.empty()
+
+
+    with c2:
+        if is_instructor_authorized(mode, key):
+            with st.popover("Download responses"):
+                choice = st.selectbox(
+                    "Export scope",
+                    ["Current session", "All sessions"],
+                    index=0,
+                )
+
+                export_sid = state.get("session_id") if choice == "Current session" else None
+                fname_scope = state.get("session_id") if export_sid else "all"
+
+                csv_bytes = export_responses_csv_for_lecture(lecture, export_sid)
+
+                if csv_bytes:
+                    st.download_button(
+                        "Download CSV",
+                        data=csv_bytes,
+                        file_name=f"responses_{lecture}_{fname_scope}.csv",
+                        mime="text/csv",
+                        use_container_width=True,
+                    )
+                else:
+                    st.caption("No data available.")
+
+
 
 
 # ----------------- Instructor view -----------------
@@ -333,6 +358,20 @@ def instructor_view():
 
     st.subheader("Instructor control panel")
 
+    # ------------- Set Session ID -----------------
+    session_id = st.text_input(
+        "Session ID",
+        value=state.get("session_id", ""),
+        help="Example: 2025-12-29_SectionA",
+    )
+
+    if session_id != state.get("session_id"):
+        state["session_id"] = session_id.strip()
+        save_state(state)
+        st.success(f"Session set to {state['session_id']}")
+        st.rerun()
+
+
     # -------- Lecture selector --------
     lectures = available_lectures()
     if not lectures:
@@ -346,7 +385,6 @@ def instructor_view():
     if selected_lecture != state.get("current_lecture"):
         state["current_lecture"] = selected_lecture
         state["active_question_id"] = None  # reset when switching lectures
-        state["show_results_to_students"] = False
         save_state(state)
         st.success(f"Lecture set to {selected_lecture}")
         st.rerun()
@@ -385,16 +423,6 @@ def instructor_view():
             st.success(f"Live: {state['active_question_id']}")
             st.rerun()
 
-    with col2:
-        show = st.checkbox(
-            "Show results to students",
-            value=bool(state.get("show_results_to_students", False)),
-        )
-        if show != bool(state.get("show_results_to_students", False)):
-            state["show_results_to_students"] = show
-            save_state(state)
-            st.success("Updated student results visibility.")
-            st.rerun()
 
     st.divider()
     st.markdown("### Live results (instructor)")
@@ -406,7 +434,7 @@ def instructor_view():
 
     st.write(f"**{q_live.get('question_id')}** — {q_live.get('prompt')}")
 
-    rows = rows_for_question(lecture_local, q_live.get("question_id"))
+    rows = rows_for_question(lecture_local, state.get("session_id", ""), q_live.get("question_id"))
 
     qtype_live = q_live.get("type")
 
@@ -484,7 +512,8 @@ def student_view():
         return
 
     qid = q_live.get("question_id")
-    already = has_submitted(lecture, qid, st.session_state.netid)
+    session_id = state.get("session_id", "")
+    already = has_submitted(lecture, session_id, qid, st.session_state.netid)
 
     if already:
         st.caption("✅ You already submitted a response for this question.")
@@ -520,6 +549,7 @@ def student_view():
             "timestamp": datetime.now(timezone.utc).isoformat(timespec="seconds"),
             "course": COURSE,
             "lecture": lecture,
+            "session_id": state.get("session_id", ""),
             "netid": st.session_state.netid,
             "question_id": qid,
             "question_type": qtype,
@@ -534,13 +564,53 @@ def student_view():
         else:
             st.info("✅ Already submitted (nothing changed).")
 
-    # -------- Optional: show results to students (controlled by instructor) --------
-    if bool(state.get("show_results_to_students", False)) and qtype == "single_choice":
-        rows = rows_for_question(lecture, qid)
+    st.write("")
+    if st.button("Check for new question", type="secondary", use_container_width=True):
+        st.rerun()
+
+
+# ----------------- Projector view -----------------
+def results_view():
+    st.subheader("Live results")
+
+    # Always use the currently selected lecture from Firestore state
+    lecture_local = state.get("current_lecture", "lecture_01")
+    questions_doc_local = load_questions(lecture_local)
+
+    q_live = get_question_by_id(questions_doc_local, state.get("active_question_id"))
+    if not q_live:
+        st.info("No active question set yet.")
+        return
+
+    st.markdown(f"## {q_live.get('question_id')}")
+    st.markdown(f"### {q_live.get('prompt')}")
+
+    rows = rows_for_question(lecture_local, state.get("session_id", ""), q_live.get("question_id"))
+    qtype_live = q_live.get("type")
+
+    if qtype_live == "single_choice":
+        options = q_live.get("options", [])
         counts = Counter(r.get("response", "") for r in rows)
-        chart_data = {opt: counts.get(opt, 0) for opt in q_live.get("options", [])}
-        st.markdown("### Class results")
+        chart_data = {opt: counts.get(opt, 0) for opt in options}
         st.bar_chart(chart_data)
+        st.caption(f"{len(rows)} responses")
+
+    elif qtype_live == "multi_choice":
+        options = q_live.get("options", [])
+        counts = Counter()
+        for r in rows:
+            for choice in (r.get("response") or []):
+                counts[choice] += 1
+        chart_data = {opt: counts.get(opt, 0) for opt in options}
+        st.bar_chart(chart_data)
+        st.caption(f"{len(rows)} submissions")
+
+    else:
+        st.caption(f"{len(rows)} responses")
+        with st.expander("Show recent responses"):
+            for r in rows[-25:]:
+                st.write(f"- {r.get('response')}")
+
 
 
 
@@ -548,5 +618,7 @@ def student_view():
 
 if mode == "instructor":
     instructor_view()
+elif mode == "results":
+    results_view()
 else:
     student_view()
