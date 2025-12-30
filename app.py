@@ -14,18 +14,34 @@ from firebase_admin import firestore
 
 st.set_page_config(page_title="GBA 468 In-Class Responses", layout="centered")
 
+st.markdown("""
+<style>
+/* Slightly round buttons for a modern, touch-friendly feel */
+.stButton > button {
+    border-radius: 0.75rem;
+}
+
+/* Ensure logos/images keep sharp corners */
+img {
+    border-radius: 0 !important;
+}
+            
+/* Hide Streamlit anchor (link) icons */
+a[href^="#"] {
+    display: none !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
+
+
 COURSE = "GBA 468"
-
 QUESTIONS_DIR = "questions"
-
-# Firestore doc id for state (you can make this COURSE + section later if needed)
 STATE_DOC_ID = COURSE
-
 INSTRUCTOR_KEY = os.environ.get("INSTRUCTOR_KEY", "change-me")  # set on host later
 
 
 # ----------------- Firestore -----------------
-
 @st.cache_resource
 def get_firestore_client():
     # Initialize Firebase Admin once per server process (ADC)
@@ -284,18 +300,19 @@ state = load_state()
 lecture = state.get("current_lecture", "lecture_01")
 questions_doc = load_questions(lecture)
 
-title = f"{COURSE} — Participation"
+LOGO_PATH = "assets/UnivRoch-Simon-vert-navyRGB.svg"
 
-st.markdown(
-    f"""
-    <div style="padding: 0.75rem 1rem; border-radius: 0.75rem; border: 1px solid #e6e6e6;">
-        <div style="font-size: 1.6rem; font-weight: 700;">{title}</div>
-        <div style="font-size: 1rem; color: #666;">Lecture: {lecture} • Mode: {mode}</div>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
-st.write("")
+with st.container():
+    left, right = st.columns([1.3, 3], vertical_alignment="center")
+    with left:
+        if os.path.exists(LOGO_PATH):
+            st.image(LOGO_PATH, width=110)  # tuned for phones
+    with right:
+        st.markdown("### GBA 468 — In-Class Participation")
+        st.caption(f"{lecture} • {state.get('session_id','')}")
+
+st.write("")  # small spacer
+
 
 # ----------------- Main controls (mobile-friendly) -----------------
 
