@@ -34,12 +34,11 @@ a[href^="#"] {
 """, unsafe_allow_html=True)
 
 
-
 COURSE = "GBA 468"
 QUESTIONS_DIR = "questions"
+ROSTER_PATH = os.path.join("data", "roster.json")
 STATE_DOC_ID = COURSE
 INSTRUCTOR_KEY = os.environ.get("INSTRUCTOR_KEY", "change-me")  # set on host later
-
 
 # ----------------- Firestore -----------------
 @st.cache_resource
@@ -100,6 +99,28 @@ def load_questions(lecture: str) -> dict:
             "title": f"(Bad JSON in {path}: {e})",
             "questions": []
         }
+
+
+@st.cache_data
+def load_roster():
+    if not os.path.exists(ROSTER_PATH):
+        return []
+
+    with open(ROSTER_PATH, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    # Normalize + sort by name
+    roster = [
+        {
+            "netid": str(d["netid"]).strip().lower(),
+            "name": str(d["name"]).strip()
+        }
+        for d in data
+        if d.get("netid") and d.get("name")
+    ]
+
+    return sorted(roster, key=lambda x: x["name"].lower())
+
 
 
 def get_question_by_id(questions_doc: dict, qid: str):
@@ -295,6 +316,10 @@ def export_responses_csv_for_lecture(lecture: str, session_id: str | None) -> by
 # ----------------- Header -----------------
 
 mode, key = get_query_params()
+ROSTER = load_roster()
+NETID_OPTIONS = [r["netid"] for r in ROSTER]
+NAME_BY_NETID = {r["netid"]: r["name"] for r in ROSTER}
+
 state = load_state()
 
 lecture = state.get("current_lecture", "lecture_01")
@@ -492,17 +517,25 @@ def student_view():
         st.markdown("## Check in")
         st.caption("Enter your NetID once. It will be attached to every submission.")
 
-        netid = st.text_input(
-            "NetID",
-            placeholder="e.g., abc123",
-        ).strip().lower()
+        if not ROSTER:
+            st.warning("Class roster not found. Contact the instructor.")
+            st.stop()
 
-        if st.button("Save NetID", type="primary", use_container_width=True):
-            if not netid:
-                st.warning("Please enter your NetID.")
+        selected_netid = st.selectbox(
+            "Select your name (start typing)",
+            options=NETID_OPTIONS,
+            index=None,
+            format_func=lambda x: f"{NAME_BY_NETID[x]} ({x})",
+            placeholder="Start typing your name or NetID..."
+        )
+
+        if st.button("Save", type="primary", use_container_width=True):
+            if not selected_netid:
+                st.warning("Please select your name.")
             else:
-                st.session_state.netid = netid
+                st.session_state.netid = selected_netid
                 st.rerun()
+
 
         st.stop()
 
