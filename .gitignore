@@ -14,3 +14,4 @@ participation*.json
 #Dev only files
 app_backup.py
 deploy.ps1
+Document.docx
