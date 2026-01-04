@@ -5,7 +5,7 @@
   "questions": [
     {
       "question_id": "Q01",
-      "type": "mcq",
+      "type": "multi_choice",
       "prompt": "Which of the following are examples of prescriptive analytics?",
       "options": [
         "Develop a real-time dashboard to track monthly sales trends by region and product category",
@@ -17,12 +17,62 @@
     },
     {
       "question_id": "Q02",
-      "type": "mcq",
+      "type": "single_choice",
       "prompt": "Is producing 102 Hydro-Lux and 102 Aqua-Spa feasible?",
       "options": [
         "These production levels are feasible and optimal.",
         "These production levels are feasible, but not optimal.",
         "These production levels are infeasible."
+      ]
+    },
+    {
+      "question_id": "Q03",
+      "type": "single_choice",
+      "prompt": "Is producing 175 Hydro-Lux and 25 Aqua-Spa feasible?",
+      "options": [
+        "These production levels are feasible and optimal.",
+        "These production levels are feasible, but not optimal.",
+        "These production levels are infeasible."
+      ]
+    },
+    {
+      "question_id": "Q04",
+      "type": "multi_text",
+      "prompt": "Find a combination of Aqua-Spa (X1) and Hydro-Lux (X2) that is feasible and that yields more than $60,900 in profit.",
+      "fields": [
+        {"key": "Aqua-Spa (X1)", "label": "# Aqua-Spa (X1) ____"},
+        {"key": "Hydro-Lux (X2)", "label": "# Hydro-Lux (X2) ____"}
+      ]
+    },
+    {
+      "question_id": "Q05",
+      "type": "text",
+      "prompt": "If the company could acquire more pumps, should they?  How much additional profit does the company make for each additional pump?",
+      "multiline": false,
+      "max_chars": 100
+    },
+    {
+      "question_id": "Q06",
+      "type": "text",
+      "prompt": "If the company could acquire more labor, should they?  How much additional profit does the company make for each additional hour of labor?",
+      "multiline": false,
+      "max_chars": 100
+    },
+    {
+      "question_id": "Q07",
+      "type": "text",
+      "prompt": "If the company could acquire more tubing, should they?  How much additional profit does the company make for each additional foot of tubing?",
+      "multiline": false,
+      "max_chars": 100
+    },
+    {
+      "question_id": "Q08",
+      "type": "single_choice",
+      "chart": "pie",
+      "prompt": "Will Typhoon-Lagoon be produced in the new optimal solution?",
+      "options": [
+        "Yes",
+        "No"
       ]
     }
   ]

@@ -1,4 +1,7 @@
 streamlit==1.52.2
 firebase-admin==7.1.0
 google-cloud-firestore==2.22.0
+matplotlib>=3.8
+numpy>=1.26
+
 

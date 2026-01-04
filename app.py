@@ -1,5 +1,6 @@
 # app.py
 import streamlit as st
+import matplotlib.pyplot as plt
 import os
 import json
 import csv
@@ -478,28 +479,10 @@ def instructor_view():
 
     rows = rows_for_question(lecture_local, state.get("session_id", ""), q_live.get("question_id"))
 
-    qtype_live = q_live.get("type")
-
-    if qtype_live == "single_choice":
-        options = q_live.get("options", [])
-        counts = Counter(r.get("response", "") for r in rows)
-        chart_data = {opt: counts.get(opt, 0) for opt in options}
-        st.bar_chart(chart_data)
-
-    elif qtype_live == "multi_choice":
-        options = q_live.get("options", [])
-        counts = Counter()
-        for r in rows:
-            for choice in (r.get("response") or []):
-                counts[choice] += 1
-        chart_data = {opt: counts.get(opt, 0) for opt in options}
-        st.bar_chart(chart_data)
-
-    else:
-        st.write(f"{len(rows)} responses so far.")
-        with st.expander("View latest responses"):
-            for r in rows[-20:]:
-                st.write(f"- `{r.get('netid')}`: {r.get('response')}")
+    st.write(f"{len(rows)} responses so far.")
+    with st.expander("View latest responses"):
+        for r in reversed(rows[-20:]):
+            st.write(f"- `{r.get('netid')}`: {r.get('response')}")
 
 
     st.caption("")
@@ -641,8 +624,27 @@ def results_view():
     if qtype_live == "single_choice":
         options = q_live.get("options", [])
         counts = Counter(r.get("response", "") for r in rows)
-        chart_data = {opt: counts.get(opt, 0) for opt in options}
-        st.bar_chart(chart_data)
+        values = [counts.get(opt, 0) for opt in options]
+
+        chart_type = (q_live.get("chart") or "bar").lower()
+
+        if chart_type == "pie":
+            fig, ax = plt.subplots(figsize=(7, 7))
+            nonzero = [(opt, v) for opt, v in zip(options, values) if v > 0]
+            if not nonzero:
+                ax.text(0.5, 0.5, "No responses yet", ha="center", va="center")
+                ax.axis("off")
+                st.pyplot(fig, clear_figure=True)
+            else:
+                labels, vals = zip(*nonzero)
+                wedges, _, _ = ax.pie(vals, autopct="%1.0f%%", startangle=90)
+                ax.axis("equal")
+                ax.legend(wedges, labels, loc="center left", bbox_to_anchor=(1, 0.5))
+                st.pyplot(fig, clear_figure=True)
+        else:
+            chart_data = {opt: counts.get(opt, 0) for opt in options}
+            st.bar_chart(chart_data)
+
         st.caption(f"{len(rows)} responses")
 
     elif qtype_live == "multi_choice":
