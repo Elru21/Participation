@@ -9,6 +9,7 @@ from collections import Counter
 from datetime import datetime, timezone
 from google.cloud.firestore_v1 import FieldFilter
 
+# $env:INSTRUCTOR_KEY="GBA468"
 
 import firebase_admin
 from firebase_admin import firestore
