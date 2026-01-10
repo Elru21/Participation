@@ -201,6 +201,16 @@ def validate_response(q_live: dict, response_value):
 
     return (False, response_value)
 
+def attendance_rows_for_session(lecture: str, session_id: str) -> list[dict]:
+    db = get_firestore_client()
+    q = (
+        db.collection("attendance")
+        .where(filter=FieldFilter("course", "==", COURSE))
+        .where(filter=FieldFilter("lecture", "==", lecture))
+        .where(filter=FieldFilter("session_id", "==", session_id))
+        .order_by("timestamp")
+    )
+    return [d.to_dict() for d in q.stream()]
 
 
 # ----------------- State in Firestore (Cloud Run friendly) -----------------
@@ -229,6 +239,28 @@ def load_state() -> dict:
 def save_state(state: dict):
     db = get_firestore_client()
     db.collection("class_state").document(STATE_DOC_ID).set(state, merge=True)
+
+# ----------------- Attendance in Firestore -----------------
+
+def log_attendance_signin(course: str, lecture: str, session_id: str, netid: str):
+    """
+    Append an attendance event every time a student signs in.
+    Uses a new document each time (so repeats are preserved).
+    """
+    db = get_firestore_client()
+
+    row = {
+        "timestamp": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "course": course,
+        "lecture": lecture,
+        "session_id": session_id,
+        "netid": netid,
+        "event": "signin",
+    }
+
+    # Add creates a new doc with an auto-ID (perfect for "append-only" logs)
+    db.collection("attendance").add(row)
+
 
 
 # ----------------- Responses in Firestore -----------------
@@ -313,6 +345,33 @@ def export_responses_csv_for_lecture(lecture: str, session_id: str | None) -> by
 
     return buf.getvalue().encode("utf-8")
 
+def export_attendance_csv(lecture: str, session_id: str | None) -> bytes | None:
+    db = get_firestore_client()
+
+    q = (
+        db.collection("attendance")
+        .where(filter=FieldFilter("course", "==", COURSE))
+        .where(filter=FieldFilter("lecture", "==", lecture))
+    )
+
+    if session_id:
+        q = q.where(filter=FieldFilter("session_id", "==", session_id))
+
+    q = q.order_by("timestamp")
+    docs = [d.to_dict() for d in q.stream()]
+    if not docs:
+        return None
+
+    fieldnames = ["timestamp", "course", "lecture", "session_id", "netid", "event"]
+
+    buf = StringIO()
+    writer = csv.DictWriter(buf, fieldnames=fieldnames)
+    writer.writeheader()
+    for r in docs:
+        writer.writerow({k: csv_safe(r.get(k, "")) for k in fieldnames})
+
+    return buf.getvalue().encode("utf-8")
+
 
 
 # ----------------- Header -----------------
@@ -367,6 +426,18 @@ with controls:
                 export_sid = state.get("session_id") if choice == "Current session" else None
                 fname_scope = state.get("session_id") if export_sid else "all"
 
+                att_bytes = export_attendance_csv(lecture, export_sid)
+                if att_bytes:
+                    st.download_button(
+                        "Download Attendance CSV",
+                        data=att_bytes,
+                        file_name=f"attendance_{lecture}_{fname_scope}.csv",
+                        mime="text/csv",
+                        use_container_width=True,
+                    )
+                else:
+                    st.caption("No attendance data available.")
+                
                 csv_bytes = export_responses_csv_for_lecture(lecture, export_sid)
 
                 if csv_bytes:
@@ -467,6 +538,19 @@ def instructor_view():
             st.success(f"Live: {state['active_question_id']}")
             st.rerun()
 
+    st.divider()
+    st.markdown("### Attendance (this session)")
+
+    att = attendance_rows_for_session(lecture_local, state.get("session_id", ""))
+    unique_netids = sorted({r.get("netid") for r in att if r.get("netid")})
+
+    st.write(f"**{len(unique_netids)}** unique students checked in "
+            f"(**{len(att)}** total sign-in events).")
+
+    with st.expander("Show checked-in NetIDs"):
+        for n in unique_netids:
+            st.write(f"- `{n}`")
+
 
     st.divider()
     st.markdown("### Live results (instructor)")
@@ -518,8 +602,16 @@ def student_view():
                 st.warning("Please select your name.")
             else:
                 st.session_state.netid = selected_netid
-                st.rerun()
 
+                # NEW: attendance log (append-only)
+                log_attendance_signin(
+                    course=COURSE,
+                    lecture=lecture,  # current lecture from Firestore state
+                    session_id=state.get("session_id", ""),
+                    netid=selected_netid,
+                )
+
+                st.rerun()
 
         st.stop()
 
