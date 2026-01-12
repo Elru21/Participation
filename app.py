@@ -644,19 +644,13 @@ def student_view():
     if already:
         st.caption("✅ You already submitted a response for this question.")
 
-    # Prompt as a card
+    # -------- Prompt as a card (Markdown-friendly) --------
     st.markdown("### Current question")
-    st.markdown(
-        f"<div style='padding: 0.9rem 1rem; border-radius: 0.9rem; border: 1px solid #e6e6e6;'>"
-        f"<div style='font-size: 1.05rem; font-weight: 600; margin-bottom: 0.35rem;'>"
-        f"{q_live.get('question_id', '')}"
-        f"</div>"
-        f"<div style='font-size: 1.05rem;'>"
-        f"{q_live.get('prompt', '')}"
-        f"</div>"
-        f"</div>",
-        unsafe_allow_html=True,
-    )
+
+    with st.container(border=True):
+        st.markdown(f"**{q_live.get('question_id', '')}**")
+        st.markdown(q_live.get("prompt", ""))
+
     st.write("")
 
     # -------- Response input --------

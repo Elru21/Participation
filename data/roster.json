@@ -51,5 +51,6 @@
   {"netid": "dxu25", "name": "Daniel Xu"},
   {"netid": "yye20", "name": "Yufei Ye"},
   {"netid": "yyu99", "name": "Yue Yu"},
-  {"netid": "czunigag", "name": "Carlos Zuniga Galvis"}
+  {"netid": "czunigag", "name": "Carlos Zuniga Galvis"},
+  {"netid": "test", "name": "Test"}
 ]

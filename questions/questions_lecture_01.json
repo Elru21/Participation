@@ -5,6 +5,17 @@
   "questions": [
     {
       "question_id": "Q01",
+      "type": "multi_text",
+      "prompt": "You are leading a product team and you have 200 person-hours to allocate this month, which you can spend on: building new features, improving reliability, marketing and outreach, or upgrading customer support.\n\n\n\nNew features are the primary driver of revenue growth, and profit-driven teams often allocate as many hours as possible there. However, while spending more time on development increases upside, the returns become less predictable the higher you go.\n\nReliability issues start to become costly below 40 or 50 hours, and the risk rises quickly the further you go below that.\n\nCustomer support starts to pay off around 30 hours, but the impact accelerates if it gets closer to 50 hours.\n\nHow would you allocate your team’s hours for the best overall decision?",
+      "fields": [
+        { "key": "newFeatures", "label": "Hours for developing new features ____." },
+        { "key": "reliability", "label": "Hours for improving reliability ____." },
+        { "key": "marketing", "label": "Hours for marketing and outreach ____." },
+        { "key": "support", "label": "Hours for customer support ____." }
+      ]
+    },
+    {
+      "question_id": "Q02",
       "type": "multi_choice",
       "prompt": "Which of the following are examples of prescriptive analytics?",
       "options": [
@@ -16,7 +27,7 @@
       ]
     },
     {
-      "question_id": "Q02",
+      "question_id": "Q03",
       "type": "single_choice",
       "prompt": "Is producing 102 Hydro-Lux and 102 Aqua-Spa feasible?",
       "options": [
@@ -26,7 +37,7 @@
       ]
     },
     {
-      "question_id": "Q03",
+      "question_id": "Q04",
       "type": "single_choice",
       "prompt": "Is producing 175 Hydro-Lux and 25 Aqua-Spa feasible?",
       "options": [
@@ -36,32 +47,23 @@
       ]
     },
     {
-      "question_id": "Q04",
-      "type": "multi_text",
-      "prompt": "Find a combination of Aqua-Spa (X1) and Hydro-Lux (X2) that is feasible and that yields more than $60,900 in profit.",
-      "fields": [
-        {"key": "Aqua-Spa (X1)", "label": "# Aqua-Spa (X1) ____"},
-        {"key": "Hydro-Lux (X2)", "label": "# Hydro-Lux (X2) ____"}
-      ]
-    },
-    {
       "question_id": "Q05",
       "type": "text",
-      "prompt": "If the company could acquire more pumps, should they?  How much additional profit does the company make for each additional pump?",
+      "prompt": "If the company could acquire more pumps, should they? How much additional profit does the company make for each additional pump?",
       "multiline": false,
       "max_chars": 100
     },
     {
       "question_id": "Q06",
       "type": "text",
-      "prompt": "If the company could acquire more labor, should they?  How much additional profit does the company make for each additional hour of labor?",
+      "prompt": "If the company could acquire more labor, should they? How much additional profit does the company make for each additional hour of labor?",
       "multiline": false,
       "max_chars": 100
     },
     {
       "question_id": "Q07",
       "type": "text",
-      "prompt": "If the company could acquire more tubing, should they?  How much additional profit does the company make for each additional foot of tubing?",
+      "prompt": "If the company could acquire more tubing, should they? How much additional profit does the company make for each additional foot of tubing?",
       "multiline": false,
       "max_chars": 100
     },
