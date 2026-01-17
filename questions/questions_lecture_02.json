@@ -5,41 +5,51 @@
   "questions": [
     {
       "question_id": "Q01",
+      "type": "single_choice",
+      "prompt": "A linear programming model is best suited for...?",
+      "options": [
+        "Assessing business performance",
+        "Allocating scare resources",
+        "Explaining system behavior"
+      ]
+    },
+    {
+      "question_id": "Q02",
       "type": "text",
       "prompt": "What is the objective for the Lunch Menu optimization problem?",
       "multiline": true,
       "max_chars": 300
     },
     {
-      "question_id": "Q02",
+      "question_id": "Q03",
       "type": "text",
       "prompt": "How many decision variables are there for the Lunch Menu optimization problems?",
       "multiline": true,
       "max_chars": 300
     },
     {
-      "question_id": "Q03",
+      "question_id": "Q04",
       "type": "text",
       "prompt": "For a hypothetical lunch, how will we know if we have exceed the max calorie constraint?",
       "multiline": true,
       "max_chars": 300
     },
     {
-      "question_id": "Q04",
+      "question_id": "Q05",
       "type": "text",
       "prompt": "What is the objective for the School Assignment optimization problem?",
       "multiline": true,
       "max_chars": 300
     },
     {
-      "question_id": "Q05",
+      "question_id": "Q06",
       "type": "text",
       "prompt": "Describe one of the constraints (or constrant categories) for the School Assignmnet optimization problem.",
       "multiline": true,
       "max_chars": 300
     },
     {
-      "question_id": "Q06",
+      "question_id": "Q07",
       "type": "multi_choice",
       "prompt": "Which Schools are at full capacity in the optimal solution?",
       "options": ["School 1", "School 2", "School 3"],
@@ -47,7 +57,7 @@
       "max_selected": 3
     },
     {
-      "question_id": "Q07",
+      "question_id": "Q08",
       "type": "single_choice",
       "prompt": "If the district could increase the capacity of only one of its schools, which should it increase in order to lower bussing costs the most?",
       "options": ["School 1", "School 2", "School 3"]
