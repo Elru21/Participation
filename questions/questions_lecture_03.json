@@ -1,0 +1,91 @@
+{
+  "course": "GBA 468",
+  "class_date": "2026-01-21",
+  "title": "GBA 468 — In-Class Questions",
+  "questions": [
+    {
+      "question_id": "Q01",
+      "type": "single_choice",
+      "prompt": "In a linear programming problem, the feasible region represents...",
+      "options": [
+        "All possible solutions that satisfy the constraints.",
+        "The area where the objective function is maximized.",
+        "Only the solutions that maximize profit or minimize cost.",
+        "The points where the constraints are violated.",
+        "The Pareto optimal solutions of the problem."
+      ]
+    },
+    {
+      "question_id": "Q02",
+      "type": "multi_choice",
+      "prompt": "Which Schools are at full capacity in the optimal solution?",
+      "options": ["School 1", "School 2", "School 3"],
+      "min_selected": 1,
+      "max_selected": 3
+    },
+    {
+      "question_id": "Q03",
+      "type": "single_choice",
+      "prompt": "If the district could increase the capacity of only one of its schools, which should it increase in order to lower bussing costs the most?",
+      "options": ["School 1", "School 2", "School 3"]
+    },
+     {
+      "question_id": "Q04",
+      "type": "single_choice",
+      "chart": "pie",
+      "prompt": "Will Typhoon-Lagoon be produced in the new optimal solution?",
+      "options": [
+        "Yes",
+        "No"
+      ]
+    },
+      {
+      "question_id": "Q05",
+      "type": "text",
+      "prompt": "By how much would we have to reduce the Area 1 to School 1 unit cost in order for students from Area 1 to be assigned to School 1 in the optimal solution?",
+      "multiline": false,
+      "max_chars": 300
+    },
+      {
+      "question_id": "Q06",
+      "type": "text",
+      "prompt": "What is the objective for the Fire Station optimization problem?",
+      "multiline": true,
+      "max_chars": 300
+    },
+      {
+      "question_id": "Q07",
+      "type": "text",
+      "prompt": "How many decision variables are there for the Fire Station optimization problem?",
+      "multiline": false,
+      "max_chars": 300
+    },
+          {
+      "question_id": "Q08",
+      "type": "text",
+      "prompt": "How many constraints are there for the Fire Station optimization problem?",
+      "multiline": false,
+      "max_chars": 300
+    },
+    {
+      "question_id": "Q09",
+      "type": "single_choice",
+      "chart": "pie",
+      "prompt": "If we build stations in Suburbs A, B, D, E, K and L, is suburb G covered by a fire station?",
+      "options": [
+        "Yes",
+        "No"
+      ]
+    },
+        {
+      "question_id": "Q10",
+      "type": "single_choice",
+      "chart": "pie",
+      "prompt": "If we build stations in Suburbs A, B, D, E, K and L, is suburb N covered by a fire station?",
+      "options": [
+        "Yes",
+        "No"
+      ]
+    }
+  ]
+}
