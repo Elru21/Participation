@@ -1,0 +1,51 @@
+{
+  "course": "GBA 468",
+  "class_date": "2026-01-21",
+  "title": "GBA 468 — In-Class Questions",
+  "questions": [
+    {
+      "question_id": "Q01",
+      "type": "single_choice",
+      "prompt": "A software company has a list of required system checks that must pass before a release.  Each automated test suite verifies several of these checks.  The goal is to run as few test suites as possible while ensuring every required system check is verified at least once. Which description best matches this problem?",
+      "options": [
+        "Select test suites so that every required system check is verified, using the smallest total number of test suites.",
+        "Select test suites so that each system check is verified exactly once, with no overlap between test suites.",
+        "Only the solutions that maximize profit or minimize cost.",
+        "Select a fixed number of test suites that together verify as many system checks as possible.",
+        "Select test suites so that the verification workload is evenly balanced across test suites."
+      ]
+    },
+    {
+      "question_id": "Q02",
+      "type": "multi_choice",
+      "prompt": "Which points dominate A?",
+      "options": ["A", "B", "C", "D", "E", "None"],
+      "min_selected": 1,
+      "max_selected": 5
+    },
+    {
+      "question_id": "Q03",
+      "type": "multi_choice",
+      "prompt": "Which points dominate D?",
+      "options": ["A", "B", "C", "D", "E","None"],
+      "min_selected": 1,
+      "max_selected": 5
+    },
+    {
+      "question_id": "Q04",
+      "type": "multi_choice",
+      "prompt": "Which points dominate B?",
+      "options": ["A", "B", "C", "D", "E", "None"],
+      "min_selected": 1,
+      "max_selected": 5
+    },
+    {
+      "question_id": "Q05",
+      "type": "multi_choice",
+      "prompt": "Which points are not dominated by any other point?",
+      "options": ["A", "B", "C", "D", "E", "None"],
+      "min_selected": 1,
+      "max_selected": 5
+    }
+  ]
+}
