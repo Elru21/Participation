@@ -1,0 +1,86 @@
+{
+  "course": "GBA 468",
+  "class_date": "2026-02-02",
+  "title": "GBA 468 — In-Class Questions",
+  "questions": [
+    {
+      "question_id": "Q01",
+      "type": "single_choice",
+      "prompt": "A consumer products company is preparing to launch a new product and must choose a strategy before knowing how the market will respond. A conservative rollout through existing channels will generate a guaranteed profit of \\$1,000. A standard launch with broader distribution will earn \\$2,000 if demand is strong and will break even if demand is weak. An aggressive nationwide launch requires significant upfront investment; if the product takes off, profits will reach \\$5,000, but if it fails, the company will incur a loss of \\$2,000. The leadership team must make its decision before the market response is known. Which strategy would you recommend they choose? ",
+      "options": [
+        "Existing channel rollout",
+        "Standard launch",
+        "Nationwide launch"
+      ]
+    },
+    {
+      "question_id": "Q02",
+      "type": "single_choice",
+      "prompt": "Which decision would you recommend for the plant?",
+      "options": ["Expand plant capacity", "Maintain plant capacity", "Reduce plant capacity"]
+    },
+    {
+      "question_id": "Q02",
+      "type": "text",
+      "prompt": "Consider the decision to Expand.  Why might a manager make this decision?",
+      "multiline": true,
+      "max_chars": 300
+    },
+    {
+      "question_id": "Q03",
+      "type": "text",
+      "prompt": "Consider the decision to Maintain.  Why might a manager make this decision?",
+      "multiline": true,
+      "max_chars": 300
+    },
+    {
+      "question_id": "Q04",
+      "type": "text",
+      "prompt": "Consider the decision to Reduce.  Why might a manager make this decision?",
+      "multiline": true,
+      "max_chars": 300
+    },
+    {
+      "question_id": "Q05",
+      "type": "text",
+      "prompt": "If the Fish House purchases 10 fish (supply) and 10 fish are demanded, how much is profit?",
+      "multiline": false,
+      "max_chars": 50
+    },
+    {
+      "question_id": "Q06",
+      "type": "text",
+      "prompt": "If the Fish House purchases 11 fish (supply) and 10 fish are demanded, how much is profit?",
+      "multiline": false,
+      "max_chars": 50
+    },
+    {
+      "question_id": "Q07",
+      "type": "text",
+      "prompt": "If the Fish House purchases 10 fish (supply) and 11 fish are demanded, how much is profit?",
+      "multiline": false,
+      "max_chars": 50
+    },
+    {
+      "question_id": "Q08",
+      "type": "text",
+      "prompt": "Using the Maximax decision rule, how many fish should be purchased (supply)?",
+      "multiline": false,
+      "max_chars": 50
+    },
+    {
+      "question_id": "Q08",
+      "type": "text",
+      "prompt": "Using the Maximin decision rule, how many fish should be purchased (supply)?",
+      "multiline": false,
+      "max_chars": 50
+    },
+    {
+      "question_id": "Q08",
+      "type": "text",
+      "prompt": "Using the Minimax Regret decision rule, how many fish should be purchased (supply)?",
+      "multiline": false,
+      "max_chars": 50
+    }
+  ]
+}
