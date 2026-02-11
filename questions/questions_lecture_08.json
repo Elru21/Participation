@@ -1,0 +1,66 @@
+{
+  "course": "GBA 468",
+  "class_date": "2026-02-11",
+  "title": "GBA 468 — In-Class Questions",
+  "questions": [
+    {
+      "question_id": "Q01",
+      "type": "single_choice",
+        "prompt": "A risky decision has the expected profit of \\$5,000.  Manager A has a certainty equivalent of \\$5,000.  Manager B has a certainty equivalent of \\$3,000.  Which of the following statements is true?",
+        "options": [
+            "Manager A is more risk-averse than Manager B",
+            "Manager B is more risk-averse than Manager A",
+            "Both Managers are risk neutral",
+            "We can't assess risk aversion from this information."
+        ]
+    },
+    {
+      "question_id": "Q02",
+      "type": "text",
+        "prompt": "If Steve ends up at Terminal Node 9, what will his total profit be?",
+        "multiline": false,
+      "max_chars": 100
+    },
+    {
+      "question_id": "Q03",
+      "type": "text",
+        "prompt": "If Steve has made the decision at Decision Node 4 to adopt Cellulary technology, What are his expected R & D costs?",
+        "multiline": false,
+      "max_chars": 100
+    },
+    {
+      "question_id": "Q04",
+      "type": "text",
+        "prompt": "If Steve is sitting at Decision Node 4, which technology choice maximizes his expected total profit",
+        "multiline": false,
+      "max_chars": 100
+    },
+    {
+      "question_id": "Q05",
+      "type": "single_choice",
+        "prompt": "If Star Coffee sets a price of \\$3, what will Burned Bean do?",
+        "options": [
+            "Enter",
+            "Stay Out"
+        ]
+    },
+    {
+      "question_id": "Q06",
+      "type": "single_choice",
+        "prompt": "If Star Coffee sets a price of \\$4, what will Burned Bean do?",
+        "options": [
+            "Enter",
+            "Stay Out"
+        ]
+    },
+    {  
+        "question_id": "Q07",
+        "type": "single_choice",
+        "prompt": "Anticipating Burned Bean's best response to its prices, what price will Star Coffee set?",
+        "options": [
+            "\\$3",
+            "\\$4"
+        ]
+    }
+]
+}
