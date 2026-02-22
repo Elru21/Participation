@@ -1,0 +1,32 @@
+{
+  "course": "GBA 468",
+  "class_date": "2026-02-11",
+  "title": "GBA 468 — In-Class Questions",
+  "questions": [
+    {
+      "question_id": "Q01",
+      "type": "single_choice",
+        "prompt": "A manager is evaluating a new product launch. Demand next month is uncertain.  She creates three cases in Excel: Low demand: 5,000 units, Base demand: 8,000 units, High demand: 12,000 units  She calculates profit under each case and reports the average of the three outcomes as the expected profit.  Which of the following best explains why Monte Carlo simulation would be preferred over this simple three-scenario analysis?",
+        "options": [
+            "Simulation guarantees a higher expected profit estimate.",
+            "Simulation randomly generates many unbiased demand values based on a probability distribution, allowing us to estimate the full distribution of profit.",
+            "Simulation eliminates uncertainty from the model.",
+            "Simulation replaces the need to specify a probability distribution for demand."
+        ]
+    },
+    {
+      "question_id": "Q02",
+      "type": "text",
+        "prompt": "What are the key inputs in the Reservation Management problem that are unknown or uncertain(i.e, inputs we should specify as random variables)?",
+        "multiline": true,
+      "max_chars": 300
+    },
+        {
+      "question_id": "Q03",
+      "type": "text",
+        "prompt": "In the Queueing Model,  how can we formulate the Time Service Begins (give a brief description of your idea)?",
+        "multiline": true,
+      "max_chars": 300
+    }
+]
+}
