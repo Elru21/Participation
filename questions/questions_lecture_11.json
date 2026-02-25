@@ -1,0 +1,18 @@
+{
+  "course": "GBA 468",
+  "class_date": "2026-02-11",
+  "title": "GBA 468 — In-Class Questions",
+  "questions": [
+    {
+      "question_id": "Q01",
+      "type": "single_choice",
+        "prompt": "Across simulation, decision trees, linear programming, and stochastic optimization, what is the common structural element?",
+        "options": [
+            "They all rey on historical data",
+            "They all assume normal distributions",
+            "THey all require explicitly defining decisions and consequences",
+            "They all eliminate uncertainty"
+        ]
+    }
+  ]
+}
